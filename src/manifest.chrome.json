@@ -1,18 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "AuRo - audio output device router",
-  "short_name": "AuRo",
-  "description": "pick audio output device for current tab",
-  "author": "",
-  "homepage_url": "https://github.com/ish-/AuRo",
-  "version": "0.2",
-  "version_name": "0.2",
+  "homepage_url": "https://github.com/kawazoe/AuRo",
   "minimum_chrome_version": "102.0",
   "action": {
     "default_icon": {
       "128": "Icon128.png"
     },
-    "default_title": "AuRo - choose your audio output device",
+    "default_title": "AuRo",
     "default_popup": "popup/popup.html"
   },
   "icons": {

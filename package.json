@@ -1,7 +1,8 @@
 {
-  "name": "AuRo - audio output device router",
-  "description": "pick audio output device for current tab",
-  "version": "0.2.0",
+  "name": "AuRo",
+  "description": "Audio Router - Pick audio output device for each tab and remember them for later.",
+  "author": "Etienne Maheu",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "build": "rollup -c rollup.config.js",
