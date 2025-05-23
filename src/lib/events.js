@@ -1,14 +1,16 @@
+import 'webextension-polyfill'
+
 import {log} from "./logging.js";
 import {getFrameDepth} from "./dom.js";
 
 function makeEvent (name, tabs) {
   function sendRuntime (message) {
     log('sending message', name, message);
-    return chrome.runtime.sendMessage({ name, ...message });
+    return browser.runtime.sendMessage({ name, ...message });
   }
   function sendTab (tabId, message) {
     log('sending message', tabId, name, message);
-    return chrome.tabs.sendMessage(tabId, { name, ...message });
+    return browser.tabs.sendMessage(tabId, { name, ...message });
   }
 
   const send = function (...args) {
@@ -20,7 +22,7 @@ function makeEvent (name, tabs) {
   };
 
   send.on = function onMessage (callback) {
-    chrome.runtime.onMessage
+    browser.runtime.onMessage
       .addListener((message, sender, sendResponse) => {
         if (message.name === name) {
           if (tabs && tabs.rootFrame && getFrameDepth() !== 0) {

@@ -1,5 +1,11 @@
+import 'webextension-polyfill'
+
 import {auro} from '../lib';
 import {main, updateOutputDevice} from "./injectable";
+
+function getBrowserAction() {
+  return browser.action ?? browser.browserAction;
+}
 
 function isDefaultDeviceId (deviceId) {
   return !deviceId || deviceId === 'default';
@@ -10,12 +16,12 @@ async function onOutputDeviceChanged (tabId, deviceId) {
     // Inject the main AuRo machinery in the page when necessary
     if (!isDefaultDeviceId(deviceId) && !await auro.events.tabs.getInitialized(tabId)) {
       // Preload the auro library
-      await chrome.scripting.executeScript({
+      await browser.scripting.executeScript({
         target: { tabId, allFrames: true },
         world: 'MAIN',
         files: [ 'lib.js' ],
       });
-      await chrome.scripting.executeScript({
+      await browser.scripting.executeScript({
         target: { tabId, allFrames: true },
         world: 'MAIN',
         func: main,
@@ -24,7 +30,7 @@ async function onOutputDeviceChanged (tabId, deviceId) {
     }
 
     // Trigger a device sink update in AuRo
-    await chrome.scripting.executeScript({
+    await browser.scripting.executeScript({
       target: { tabId, allFrames: true },
       world: 'MAIN',
       func: updateOutputDevice,
@@ -32,7 +38,7 @@ async function onOutputDeviceChanged (tabId, deviceId) {
     });
 
     // Update the UI
-    await chrome.action.setBadgeText({
+    await getBrowserAction().setBadgeText({
       tabId,
       text: isDefaultDeviceId(deviceId) ? '' : 'Ω',
     });
@@ -75,7 +81,7 @@ auro.events.extension.restoreLastOutputDevice.on(async (_, sender) => {
   await onOutputDeviceChanged(tabId, targets.deviceId);
 });
 auro.events.extension.setTheme.on(({ isDark }) =>
-  chrome.action.setIcon({
+  getBrowserAction().setIcon({
     path: isDark ? 'Icon128-white.png' : 'Icon128.png',
   })
 );

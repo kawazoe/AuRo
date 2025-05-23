@@ -1,3 +1,5 @@
+import 'webextension-polyfill'
+
 function makeRepository (namespace, storage) {
   const toKey = (id) => `${namespace}${ id }`;
 
@@ -11,10 +13,10 @@ function makeRepository (namespace, storage) {
       return storage.set({ [toKey(id)]: deviceId });
     },
     removeTarget (id) {
-      return storage.remove([toKey(id)]);
+      return storage.remove(toKey(id));
     },
   };
 }
 
-export const tabs = makeRepository('tab_', chrome.storage.session);
-export const hosts = makeRepository('host_', chrome.storage.local);
+export const tabs = makeRepository('tab_', browser.storage.session);
+export const hosts = makeRepository('host_', browser.storage.local);

@@ -3,5 +3,6 @@
 *.crx
 *.zip
 
-/dist
+/dist.chrome
+/dist.firefox
 /node_modules
