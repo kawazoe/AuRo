@@ -4,6 +4,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import replace from '@rollup/plugin-replace';
 import { chromeExtension, simpleReloader } from 'rollup-plugin-chrome-extension';
 import copy from 'rollup-plugin-copy';
+import {emptyDir} from "rollup-plugin-empty-dir";
 
 /**
  *
@@ -23,6 +24,49 @@ export default (args) => {
   ];
 
   return [
+    {
+      input: `./src/manifest.chrome.json`,
+      output: {
+        dir: 'dist.chrome',
+        format: 'es',
+        globals: [ 'chrome' ],
+        // HACK: Bypass a bug in chromeExtension() with chunk generation on Windows.
+        // https://github.com/crxjs/chrome-extension-tools/issues/111
+        chunkFileNames: path.join('chunks', '[name]-[hash].js'),
+      },
+      treeshake: false,
+      plugins: [
+        emptyDir(),
+        chromeExtension(),
+        simpleReloader(),
+        ...commonPlugins,
+        copy({
+          targets: [
+            { src: 'src/Icon128-white.png', dest: 'dist.chrome' }
+          ]
+        })
+      ],
+    },
+    {
+      input: `./src/manifest.firefox.json`,
+      output: {
+        dir: 'dist.firefox',
+        format: 'es',
+        globals: [ 'chrome' ]
+      },
+      treeshake: false,
+      plugins: [
+        emptyDir(),
+        chromeExtension(),
+        simpleReloader(),
+        ...commonPlugins,
+        copy({
+          targets: [
+            { src: 'src/Icon128-white.png', dest: 'dist.firefox' }
+          ]
+        })
+      ],
+    },
     {
       input: './src/background/library.js',
       output: {
@@ -45,46 +89,5 @@ export default (args) => {
         ...commonPlugins,
       ],
     },
-    {
-      input: `./src/manifest.chrome.json`,
-      output: {
-        dir: 'dist.chrome',
-        format: 'es',
-        globals: [ 'chrome' ],
-        // HACK: Bypass a bug in chromeExtension() with chunk generation on Windows.
-        // https://github.com/crxjs/chrome-extension-tools/issues/111
-        chunkFileNames: path.join('chunks', '[name]-[hash].js'),
-      },
-      treeshake: false,
-      plugins: [
-        chromeExtension(),
-        simpleReloader(),
-        ...commonPlugins,
-        copy({
-          targets: [
-            { src: 'src/Icon128-white.png', dest: 'dist.chrome' }
-          ]
-        })
-      ],
-    },
-    {
-      input: `./src/manifest.firefox.json`,
-      output: {
-        dir: 'dist.firefox',
-        format: 'es',
-        globals: [ 'chrome' ]
-      },
-      treeshake: false,
-      plugins: [
-        chromeExtension(),
-        simpleReloader(),
-        ...commonPlugins,
-        copy({
-          targets: [
-            { src: 'src/Icon128-white.png', dest: 'dist.firefox' }
-          ]
-        })
-      ],
-    }
   ];
 };
