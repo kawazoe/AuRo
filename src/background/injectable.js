@@ -1,89 +1,112 @@
 export function main () {
   window.$AuRo = {
-    els: [],
-    addEl (el) {
-      let i = this.els.indexOf(el);
-      if (~i)
-        this.els.splice(i, 1);
-      this.els.unshift(el);
+    // selected device id
+    /////////////////////
+    deviceId: null,
+    orphans: [],
+    async getSelectedDeviceId () {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      const selectedDevice = devices.find(({ deviceId }) => deviceId === $AuRo.deviceId);
+
+      if (selectedDevice) {
+        return selectedDevice.deviceId;
+      } else {
+        auro.logging.warn('Requested output device was not found. It was probably disconnected. You might want to update your preferred device.');
+        auro.logging.warn('Falling back to the default output device.');
+        return '';
+      }
+    },
+    async setSelectedDeviceId (deviceId) {
+      $AuRo.deviceId = deviceId;
+
+      await Promise.all(
+        Array
+          .from(document.querySelectorAll('audio,video'))
+          .concat($AuRo.orphans)
+          .map(el => $AuRo.setSinkId(el, deviceId))
+      );
     },
 
-    deviceId: null,
-    update (deviceId) {
-      $AuRo.deviceId = deviceId;
-      auro.logging.log(`update(${deviceId})`);
+    // Per browser setSinkId patch
+    //////////////////////////////
+    async setSinkId(el, deviceId) {
+      auro.logging.log(`setSinkId(${deviceId})`, el);
+      const isFirefox = !window.chrome?.app;
+      if (isFirefox) {
+        return $AuRo.setSinkId_Firefox(el, deviceId);
+      } else {
+        return $AuRo.setSinkId_Chrome(el, deviceId);
+      }
+    },
+    async setSinkId_Firefox(el, deviceId) {
+      // Firefox refuses to setSinkId when the media is NOT playing.
+      if (el.paused) {
+        auro.logging.log(`setSinkId_Firefox(${deviceId}) - paused`, el);
+        return Promise.resolve()
+          .then(() => el.$AuRo.play.call(el))
+          .then(() => el.setSinkId(deviceId))
+          .then(() => el.pause());
+      } else {
+        auro.logging.log(`setSinkId_Firefox(${deviceId}) - playing`, el);
+        return Promise.resolve()
+          .then(() => el.setSinkId(deviceId));
+      }
+    },
+    async setSinkId_Chrome(el, deviceId) {
+      // Chrome refuses to setSinkId when the media IS playing.
+      if (el.paused) {
+        auro.logging.log(`setSinkId_Chrome(${deviceId}) - paused`, el);
+        return Promise.resolve()
+          .then(() => el.setSinkId(deviceId));
+      } else {
+        auro.logging.log(`setSinkId_Chrome(${deviceId}) - playing`, el);
+        return Promise.resolve()
+          .then(() => el.pause(deviceId))
+          .then(() => el.setSinkId(deviceId))
+          .then(() => el.$AuRo.play.call(el));
+      }
+    },
 
-      Promise.all(this.els.map(el => {
-        return new Promise(rslv => {
-          const prevTime = el.currentTime;
-          setTimeout(() => {
-            rslv(prevTime !== el.currentTime ? el : null);
-          }, 5);
-        })
-      })).then(elsWhichTimesAreChanging => {
-        const playingEls = elsWhichTimesAreChanging.filter(Boolean);
-        playingEls.forEach(el => {
-          el.pause();
-          el.setSinkId(deviceId);
-          setTimeout(() => el.play(), 3);
-        })
+    // Mokeypatching HTMLMediaElement
+    /////////////////////////////////
+    patch (element, name) {
+      if (element.prototype.$AuRo) {
+        auro.logging.log(`${name} is already patched. Skipping!`);
+        return;
+      }
 
-        auro.logging.log(`update().setSinkId(${deviceId}) for: `, playingEls);
-      });
+      element.prototype.$AuRo = { play: element.prototype.play };
+
+      element.prototype.play = async function () {
+        auro.logging.log(`${name}.play()`, this);
+
+        // Enables detection and sink updates for orphaned elements
+        if (!this.parentNode && !$AuRo.orphans.includes(this)) {
+          auro.logging.warn(`Detected orphan ${name}, being tracking...`);
+          $AuRo.orphans.push(this);
+        }
+
+        const deviceId = await $AuRo.getSelectedDeviceId();
+
+        return Promise.resolve()
+          .then(() => $AuRo.setSinkId(this, deviceId))
+          .then(() => this.$AuRo.play.call(this))
+          .catch(e => auro.logging.error(`${name}.play() failed`, e));
+      };
     }
   };
 
-  async function getDeviceId () {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-    const devices = await navigator.mediaDevices.enumerateDevices();
-
-    const selectedDevice = devices.find(({ deviceId }) => deviceId === $AuRo.deviceId);
-
-    if (selectedDevice) {
-      return selectedDevice.deviceId;
-    } else {
-      auro.logging.warn('Requested output device was not found. It was probably disconnected. You might want to update your preferred device.');
-      auro.logging.warn('Falling back to the default output device.');
-      return '';
-    }
-  }
-
-  function patch (element, name) {
-    if (element.prototype.play.$AuRoPatched) {
-      auro.logging.log(`${name} is already patched. Skipping!`);
-      return;
-    }
-
-    const _elPlay = element.prototype.play;
-    element.prototype.play = async function () {
-      auro.logging.log(`${name}.play()`, 'wrapper', this);
-
-      $AuRo.addEl(this);
-
-      try {
-        const deviceId = await getDeviceId();
-
-        auro.logging.log(`${name}.setSinkId(${deviceId})`);
-
-        await this.setSinkId(deviceId);
-      } catch (err) {
-        auro.logging.error(err);
-      } finally {
-        auro.logging.log(`${name}.play()`, _elPlay);
-        await _elPlay.call(this);
-      }
-    };
-    element.prototype.play.$AuRoPatched = true;
-  }
-
-  patch(HTMLAudioElement, 'HTMLAudioElement');
-  patch(HTMLVideoElement, 'HTMLVideoElement');
+  $AuRo.patch(HTMLAudioElement, 'HTMLAudioElement');
+  $AuRo.patch(HTMLVideoElement, 'HTMLVideoElement');
 
   auro.logging.log('Monkeypatched');
 }
 
 export function updateOutputDevice (deviceId) {
   if (typeof $AuRo !== 'undefined') {
-    $AuRo.update(deviceId);
+    $AuRo.setSelectedDeviceId(deviceId)
+      .catch(e => auro.logging.error(`updateOutputDevice(${deviceId}) failed`, e));
   }
 }
