@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "homepage_url": "https://github.com/kawazoe/AuRo",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "auro@contact.etiennemaheu.com",
+      "strict_min_version": "116.0"
+    }
+  },
+  "browser_action": {
+    "default_icon": {
+      "128": "Icon128.png"
+    },
+    "default_title": "AuRo",
+    "default_popup": "popup/popup.html"
+  },
+  "icons": {
+    "128": "Icon128.png"
+  },
+  "background": {
+    "scripts": ["serviceWorker.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "content/index.js"
+      ],
+      "all_frames": true
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "scripting",
+    "http://*/*",
+    "https://*/*"
+  ]
+}
